@@ -17,7 +17,7 @@ import pretty_uptime
 
 LOG = logging.getLogger('RajoyBot')
 
-REMOVE_CHARS = str.maketrans('', '', string.punctuation + string.whitespace)
+REMOVE_CHARS = str.maketrans('', '', string.punctuation)
 TELEGRAM_INLINE_MAX_RESULTS = 48
 
 
@@ -138,7 +138,7 @@ def main() -> None:
         inline_query = update.inline_query
         LOG.debug(inline_query)
         try:
-            text = unidecode.unidecode(inline_query.query.translate(REMOVE_CHARS).lower())
+            text = unidecode.unidecode(inline_query.query).translate(REMOVE_CHARS).lower()
             LOG.debug("Querying: %s", text)
             r = []
             for sound in search_sounds(text, sounds):

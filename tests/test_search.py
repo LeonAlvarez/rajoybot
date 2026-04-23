@@ -1,9 +1,11 @@
 import sys
 import os
+import string
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'app'))
 
-from bot import search_sounds
+import unidecode
+from bot import search_sounds, REMOVE_CHARS
 
 
 SAMPLE_SOUNDS = [
@@ -39,11 +41,68 @@ class TestSearchSounds:
     def test_empty_query(self):
         results = search_sounds("", SAMPLE_SOUNDS)
         # Empty string should match everything (empty query_words list -> all() returns True)
-        assert len(results) > 0
+        assert len(results) == len(SAMPLE_SOUNDS)
 
     def test_result_limit(self):
         """Ensure results are capped at TELEGRAM_INLINE_MAX_RESULTS."""
         many_sounds = [{"id": i, "filename": f"s{i}.ogg", "text": f"Sound {i}", "tags": "common tag"}
                        for i in range(100)]
         results = search_sounds("common", many_sounds)
-        assert len(results) <= 49  # TELEGRAM_INLINE_MAX_RESULTS + 1
+        assert len(results) <= 49
+
+    def test_single_character_query(self):
+        results = search_sounds("a", SAMPLE_SOUNDS)
+        # 'a' is substring of 'alcalde', 'aqui', 'santo'
+        assert len(results) >= 1
+
+    def test_all_words_must_match(self):
+        """Multi-word query requires ALL words to match in some tag word."""
+        results = search_sounds("vino santo", SAMPLE_SOUNDS)
+        # 'divino' contains 'vino' and tags include 'santo' -> matches
+        assert len(results) == 1
+        assert results[0]["filename"] == "divino.ogg"
+
+    def test_multi_word_no_match(self):
+        """Multi-word query with no sound matching all words."""
+        results = search_sounds("vecino tinto", SAMPLE_SOUNDS)
+        assert len(results) == 0
+
+
+class TestSearchPipeline:
+    """Test the full query preprocessing: translate(REMOVE_CHARS) + unidecode + lower."""
+
+    def _preprocess(self, query: str) -> str:
+        """Simulate the preprocessing done in bot.py query_text handler."""
+        return unidecode.unidecode(query).translate(REMOVE_CHARS).lower()
+
+    def test_punctuation_stripped(self):
+        result = self._preprocess("¿Cuánto peor?")
+        # unidecode converts ¿ to ? and removes it via translate, á -> a
+        assert "cuanto" in result
+        assert "peor" in result
+        # Whitespace preserved for multi-word matching
+        assert " " in result
+
+    def test_accents_normalized(self):
+        result = self._preprocess("café")
+        assert result == "cafe"
+
+    def test_whitespace_preserved(self):
+        """Whitespace must be preserved so multi-word search works."""
+        result = self._preprocess("cuanto peor")
+        words = result.split()
+        assert len(words) == 2
+
+    def test_pipeline_then_search(self):
+        """Full pipeline: preprocess query then search."""
+        query = "¿Cuánto peor?"
+        processed = self._preprocess(query)
+        results = search_sounds(processed, SAMPLE_SOUNDS)
+        assert len(results) == 1
+        assert results[0]["filename"] == "cuanto_peor.ogg"
+
+    def test_remove_chars_only_strips_punctuation(self):
+        """Verify REMOVE_CHARS does NOT strip whitespace."""
+        test = "hello, world!"
+        result = test.translate(REMOVE_CHARS)
+        assert result == "hello world"

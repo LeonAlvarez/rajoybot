@@ -11,7 +11,7 @@ LOG = logging.getLogger('RajoyBot.persistence')
 
 class Sound(Model):
     id = fields.IntField(primary_key=True, generated=False)
-    filename = fields.CharField(max_length=255, unique=True, index=True)
+    filename = fields.CharField(max_length=255, unique=True, db_index=True)
     text = fields.CharField(max_length=512)
     tags = fields.CharField(max_length=512)
     disabled = fields.BooleanField(default=False)
