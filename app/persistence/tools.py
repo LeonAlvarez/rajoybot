@@ -1,7 +1,7 @@
 import logging
 from typing import Any
 
-from . import Sound, ResultHistory, User, _sound_to_dict
+from . import ResultHistory, User, _sound_to_dict
 
 LOG = logging.getLogger('RajoyBot.persistence.tools')
 

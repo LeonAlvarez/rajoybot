@@ -1,6 +1,6 @@
 import platform
-from datetime import timedelta
 import time
+from datetime import timedelta
 
 _start_time = time.time()
 
@@ -31,5 +31,5 @@ def get_pretty_python_uptime(custom_name: str = '') -> str:
     now = time.time()
     delta = now - _start_time
     str_uptime = str(timedelta(seconds=int(delta)))
-    pretty_uptime = "{custom_name} Uptime: {uptime}".format(custom_name=custom_name, uptime=str_uptime)
+    pretty_uptime = f"{custom_name} Uptime: {str_uptime}"
     return pretty_uptime.strip()

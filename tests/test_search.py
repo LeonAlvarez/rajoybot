@@ -1,12 +1,10 @@
-import sys
 import os
-import string
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'app'))
 
 import unidecode
-from bot import search_sounds, REMOVE_CHARS
-
+from bot import REMOVE_CHARS, search_sounds
 
 SAMPLE_SOUNDS = [
     {"id": 1, "filename": "cuanto_peor.ogg", "text": "Cuanto peor mejor", "tags": "cuanto peor mejor todos"},

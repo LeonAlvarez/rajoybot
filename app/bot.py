@@ -4,16 +4,20 @@ import random
 import string
 from typing import Any
 
-import unidecode
-from dotenv import load_dotenv
-from telegram import InlineQueryResultVoice, Update
-from telegram.ext import Application, CommandHandler, ChosenInlineResultHandler, ContextTypes, InlineQueryHandler, \
-    filters
-
-from config import Config, parse_config
-from persistence import SoundRepository
-from persistence import tools
 import pretty_uptime
+import unidecode
+from config import Config, parse_config
+from dotenv import load_dotenv
+from persistence import SoundRepository, tools
+from telegram import InlineQueryResultVoice, Update
+from telegram.ext import (
+    Application,
+    ChosenInlineResultHandler,
+    CommandHandler,
+    ContextTypes,
+    InlineQueryHandler,
+    filters,
+)
 
 LOG = logging.getLogger('RajoyBot')
 
@@ -163,16 +167,11 @@ def main() -> None:
         queries = await database.get_queries()
         results = await database.get_results()
         await update.message.reply_text(
-            '🤖 {uptime}\n'
+            f'🤖 {bot_uptime}\n'
             '*All time stats:*\n'
-            '👥 Users: {num_users}\n'
-            '🔎 Queries: {num_queries}\n'
-            '🔊 Results: {num_results}\n'.format(
-                num_users=len(users),
-                num_queries=len(queries),
-                num_results=len(results),
-                uptime=bot_uptime
-            ),
+            f'👥 Users: {len(users)}\n'
+            f'🔎 Queries: {len(queries)}\n'
+            f'🔊 Results: {len(results)}\n',
             parse_mode='Markdown'
         )
 
@@ -182,13 +181,9 @@ def main() -> None:
         machine_uptime = pretty_uptime.get_pretty_machine_uptime_string()
         machine_info = pretty_uptime.get_pretty_machine_info()
         await update.message.reply_text(
-            '💻 {machine_info}\n'
-            '⌛ {machine_uptime}\n'
-            '🤖 {py_uptime}\n'.format(
-                machine_info=machine_info,
-                machine_uptime=machine_uptime,
-                py_uptime=py_uptime
-            )
+            f'💻 {machine_info}\n'
+            f'⌛ {machine_uptime}\n'
+            f'🤖 {py_uptime}\n'
         )
 
     async def post_init(application: Application) -> None:
@@ -227,7 +222,7 @@ def main() -> None:
         app.run_webhook(
             listen=config.webhook_listening,
             port=config.webhook_listening_port,
-            webhook_url="https://{}:{}/{}/".format(config.webhook_host, config.webhook_port, config.token),
+            webhook_url=f"https://{config.webhook_host}:{config.webhook_port}/{config.token}/",
         )
     else:
         LOG.info("Starting polling...")

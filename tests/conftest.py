@@ -1,5 +1,5 @@
-import sys
 import os
+import sys
 
 import pytest_asyncio
 from tortoise import Tortoise

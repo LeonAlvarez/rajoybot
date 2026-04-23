@@ -1,7 +1,7 @@
 import logging
 from typing import Any
 
-from tortoise import fields, Tortoise
+from tortoise import Tortoise, fields
 from tortoise.models import Model
 
 LOG = logging.getLogger('RajoyBot.persistence')
@@ -91,17 +91,13 @@ class SoundRepository:
         """Initialize the database connection. Must be called with await."""
         if self._provider == 'mysql':
             LOG.info('Starting persistence layer using MySQL on %s db: %s', self._host, self._database_name)
-            db_url = "mysql://{}:{}@{}:{}/{}".format(
-                self._user, self._password, self._host, self._port, self._database_name
-            )
+            db_url = f"mysql://{self._user}:{self._password}@{self._host}:{self._port}/{self._database_name}"
         elif self._provider == 'postgres':
             LOG.info('Starting persistence layer using PostgreSQL on %s db: %s', self._host, self._database_name)
-            db_url = "postgres://{}:{}@{}:{}/{}".format(
-                self._user, self._password, self._host, self._port, self._database_name
-            )
+            db_url = f"postgres://{self._user}:{self._password}@{self._host}:{self._port}/{self._database_name}"
         elif self._filename is not None:
             LOG.info('Starting persistence layer on file %s using SQLite.', self._filename)
-            db_url = "sqlite://{}".format(self._filename)
+            db_url = f"sqlite://{self._filename}"
         else:
             LOG.info('Starting persistence layer on memory using SQLite.')
             db_url = "sqlite://:memory:"
