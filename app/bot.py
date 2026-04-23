@@ -17,8 +17,18 @@ import pretty_uptime
 
 LOG = logging.getLogger('RajoyBot')
 
+LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 REMOVE_CHARS = str.maketrans('', '', string.punctuation)
 TELEGRAM_INLINE_MAX_RESULTS = 48
+
+
+def _make_voice_result(sound: dict[str, Any], bucket: str, title: str | None = None) -> InlineQueryResultVoice:
+    return InlineQueryResultVoice(
+        id=str(sound["id"]),
+        voice_url=bucket + sound["filename"],
+        title=title or sound["text"],
+        caption=sound["text"]
+    )
 
 
 def search_sounds(query: str, sounds: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -69,14 +79,11 @@ def main() -> None:
 
     config = parse_config()
 
-    logging.basicConfig(
-        level=getattr(logging, config.verbosity, logging.INFO),
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
+    logging.basicConfig(level=getattr(logging, config.verbosity, logging.INFO), format=LOG_FORMAT)
 
     if config.logfile:
         file_handler = logging.FileHandler(config.logfile)
-        file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+        file_handler.setFormatter(logging.Formatter(LOG_FORMAT))
         logging.getLogger().addHandler(file_handler)
 
     if not config.token:
@@ -96,7 +103,6 @@ def main() -> None:
         LOG.info('Using SQLite as persistence layer: %s', config.sqlite)
         database = SoundRepository('sqlite', filename=config.sqlite)
 
-    # Sounds will be populated in post_init after DB is ready
     sounds: list[dict[str, Any]] = []
 
     # --- Handler definitions ---
@@ -114,21 +120,11 @@ def main() -> None:
         r = []
         recently_used_sounds = await tools.get_latest_used_sounds_from_user(inline_query.from_user.id)
         for sound in recently_used_sounds:
-            r.append(InlineQueryResultVoice(
-                id=str(sound["id"]),
-                voice_url=config.bucket + sound["filename"],
-                title='🕚 ' + sound["text"],
-                caption=sound["text"]
-            ))
+            r.append(_make_voice_result(sound, config.bucket, title='🕚 ' + sound["text"]))
         for sound in sounds:
             if sound in recently_used_sounds:
                 continue
-            r.append(InlineQueryResultVoice(
-                id=str(sound["id"]),
-                voice_url=config.bucket + sound["filename"],
-                title=sound["text"],
-                caption=sound["text"]
-            ))
+            r.append(_make_voice_result(sound, config.bucket))
             if len(r) > TELEGRAM_INLINE_MAX_RESULTS:
                 break
         await inline_query.answer(r, is_personal=True, cache_time=5)
@@ -140,14 +136,7 @@ def main() -> None:
         try:
             text = unidecode.unidecode(inline_query.query).translate(REMOVE_CHARS).lower()
             LOG.debug("Querying: %s", text)
-            r = []
-            for sound in search_sounds(text, sounds):
-                r.append(InlineQueryResultVoice(
-                    id=str(sound["id"]),
-                    voice_url=config.bucket + sound["filename"],
-                    title=sound["text"],
-                    caption=sound["text"]
-                ))
+            r = [_make_voice_result(sound, config.bucket) for sound in search_sounds(text, sounds)]
             await inline_query.answer(r, cache_time=5)
             await save_query(inline_query)
         except Exception as e:
@@ -203,14 +192,12 @@ def main() -> None:
         )
 
     async def post_init(application: Application) -> None:
-        """Called after the Application is initialized — init DB and sync sounds here."""
         await database.init()
         loaded = await synchronize_sounds(config, database)
         sounds.extend(loaded)
         LOG.info('Serving %i sounds.', len(sounds))
 
     async def post_shutdown(application: Application) -> None:
-        """Clean up database connections on shutdown."""
         from tortoise import Tortoise
         await Tortoise.close_connections()
 
@@ -226,19 +213,15 @@ def main() -> None:
 
     app.add_handler(CommandHandler("start", send_welcome))
 
-    # Admin commands - filter by username
     if config.admin:
         admin_filter = filters.User(username=config.admin)
         app.add_handler(CommandHandler("stats", send_stats, filters=admin_filter))
         app.add_handler(CommandHandler("uptime", send_uptime, filters=admin_filter))
 
-    # Inline handlers - empty query first (more specific), then text query
     app.add_handler(InlineQueryHandler(query_empty, pattern="^$"))
     app.add_handler(InlineQueryHandler(query_text))
-
     app.add_handler(ChosenInlineResultHandler(on_result))
 
-    # Run
     if config.webhook_host:
         LOG.info("Starting webhook on %s:%s", config.webhook_host, config.webhook_port)
         app.run_webhook(

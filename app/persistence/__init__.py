@@ -26,9 +26,9 @@ class User(Model):
     id = fields.IntField(primary_key=True, generated=False)
     is_bot = fields.BooleanField()
     first_name = fields.CharField(max_length=255)
-    last_name = fields.CharField(max_length=255, default='')
-    username = fields.CharField(max_length=255, default='')
-    language_code = fields.CharField(max_length=16, default='')
+    last_name = fields.CharField(max_length=255, null=True)
+    username = fields.CharField(max_length=255, null=True)
+    language_code = fields.CharField(max_length=16, null=True)
     first_seen = fields.DatetimeField(auto_now_add=True)
 
     queries: fields.ReverseRelation["QueryHistory"]
@@ -41,7 +41,7 @@ class User(Model):
 class QueryHistory(Model):
     id = fields.IntField(primary_key=True)
     user = fields.ForeignKeyField('models.User', related_name='queries')
-    text = fields.CharField(max_length=512, default='')
+    text = fields.CharField(max_length=512, null=True)
     timestamp = fields.DatetimeField(auto_now_add=True)
 
     class Meta:
@@ -59,6 +59,20 @@ class ResultHistory(Model):
 
 
 # --- Repository ---
+
+def _user_fields_from_any(user: Any) -> dict[str, Any]:
+    """Extract user fields from either a dict or a Telegram User object."""
+    if isinstance(user, dict):
+        return user
+    return {
+        'id': user.id,
+        'is_bot': user.is_bot,
+        'first_name': user.first_name,
+        'last_name': getattr(user, 'last_name', None),
+        'username': getattr(user, 'username', None),
+        'language_code': getattr(user, 'language_code', None),
+    }
+
 
 class SoundRepository:
 
@@ -92,17 +106,13 @@ class SoundRepository:
             LOG.info('Starting persistence layer on memory using SQLite.')
             db_url = "sqlite://:memory:"
 
-        await Tortoise.init(
-            db_url=db_url,
-            modules={'models': ['persistence']}
-        )
+        await Tortoise.init(db_url=db_url, modules={'models': ['persistence']})
         await Tortoise.generate_schemas()
 
+    # --- Sound operations ---
+
     async def get_sounds(self, include_disabled: bool = False) -> list[dict[str, Any]]:
-        sounds_qs = await Sound.filter(disabled=include_disabled).all()
-        sounds = [_sound_to_dict(s) for s in sounds_qs]
-        LOG.debug("get_sounds: Obtained: %s", str(sounds))
-        return sounds
+        return [_sound_to_dict(s) for s in await Sound.filter(disabled=include_disabled).all()]
 
     async def get_sound(self, id: int | None = None, filename: str | None = None) -> dict[str, Any] | None:
         filters = {}
@@ -113,9 +123,7 @@ class SoundRepository:
         if not filters:
             return None
         db_object = await Sound.filter(**filters).first()
-        if db_object:
-            return _sound_to_dict(db_object)
-        return None
+        return _sound_to_dict(db_object) if db_object else None
 
     async def add_sound(self, id: int, filename: str, text: str, tags: str) -> None:
         LOG.info('Adding sound: %s %s', id, filename)
@@ -126,55 +134,16 @@ class SoundRepository:
         db_sound = await Sound.filter(filename=sound['filename']).first()
         if db_sound is None:
             return
-        uses_count = await ResultHistory.filter(sound=db_sound).count()
-        if uses_count > 0:
+        if await db_sound.uses.all().count() > 0:
             db_sound.disabled = True
             await db_sound.save()
         else:
             await db_sound.delete()
 
-    async def add_or_update_user(self, user: Any) -> dict[str, Any] | None:
-        if not isinstance(user, dict):
-            user = {
-                'id': user.id,
-                'is_bot': user.is_bot,
-                'first_name': user.first_name,
-                'last_name': getattr(user, 'last_name', None),
-                'username': getattr(user, 'username', None),
-                'language_code': getattr(user, 'language_code', None),
-            }
-            LOG.debug('Translated user object: %s', str(user))
-
-        db_user = await self.get_user(id=user['id'])
-        if db_user is not None and user != db_user:
-            LOG.info('Updating user: %s', str(db_user))
-            await User.filter(id=user['id']).update(
-                is_bot=user['is_bot'],
-                first_name=user['first_name'],
-                last_name=user['last_name'] if user['last_name'] is not None else '',
-                username=user['username'] if user['username'] is not None else '',
-                language_code=user['language_code'] if user['language_code'] is not None else '',
-            )
-        elif db_user is None:
-            LOG.info('Adding user: %s', str(user))
-            await User.create(
-                id=user['id'],
-                is_bot=user['is_bot'],
-                first_name=user['first_name'],
-                last_name=user['last_name'] if user['last_name'] is not None else '',
-                username=user['username'] if user['username'] is not None else '',
-                language_code=user['language_code'] if user['language_code'] is not None else '',
-            )
-        else:
-            LOG.debug('User %s already in database.', user['id'])
-            return None
-        return await self.get_user(user['id'])
+    # --- User operations ---
 
     async def get_users(self) -> list[dict[str, Any]]:
-        users_qs = await User.all()
-        users = [_user_to_dict(u) for u in users_qs]
-        LOG.debug("get_users: Obtained: %s", str(users))
-        return users
+        return [_user_to_dict(u) for u in await User.all()]
 
     async def get_user(self, id: int | None = None, username: str | None = None) -> dict[str, Any] | None:
         filters = {}
@@ -185,37 +154,53 @@ class SoundRepository:
         if not filters:
             return None
         db_object = await User.filter(**filters).first()
-        if db_object:
-            return _user_to_dict(db_object)
-        return None
+        return _user_to_dict(db_object) if db_object else None
+
+    async def add_or_update_user(self, user: Any) -> dict[str, Any] | None:
+        user = _user_fields_from_any(user)
+        db_user = await self.get_user(id=user['id'])
+
+        if db_user is None:
+            LOG.info('Adding user: %s', str(user))
+            await User.create(**user)
+        elif user != db_user:
+            LOG.info('Updating user: %s', str(db_user))
+            await User.filter(id=user['id']).update(
+                is_bot=user['is_bot'],
+                first_name=user['first_name'],
+                last_name=user['last_name'],
+                username=user['username'],
+                language_code=user['language_code'],
+            )
+        else:
+            LOG.debug('User %s already in database.', user['id'])
+            return None
+        return await self.get_user(user['id'])
+
+    # --- History operations ---
+
+    async def _ensure_user(self, from_user: Any) -> dict[str, Any]:
+        """Get or create a user, returning the user dict."""
+        db_user = await self.get_user(from_user.id)
+        if not db_user:
+            db_user = await self.add_or_update_user(from_user)
+        return db_user
 
     async def add_query(self, query: Any) -> None:
         LOG.info("Adding query: %s", str(query))
-        from_user = query.from_user
-        db_user = await self.get_user(from_user.id)
-        if not db_user:
-            db_user = await self.add_or_update_user(from_user)
+        db_user = await self._ensure_user(query.from_user)
         await QueryHistory.create(user_id=db_user['id'], text=query.query)
-
-    async def get_queries(self) -> list[dict[str, Any]]:
-        queries_qs = await QueryHistory.all().prefetch_related('user')
-        queries = [_query_to_dict(q) for q in queries_qs]
-        LOG.debug("get_queries: Obtained: %s", str(queries))
-        return queries
 
     async def add_result(self, result: Any) -> None:
         LOG.info("Adding result: %s", str(result))
-        from_user = result.from_user
-        db_user = await self.get_user(from_user.id)
-        if not db_user:
-            db_user = await self.add_or_update_user(from_user)
+        db_user = await self._ensure_user(result.from_user)
         await ResultHistory.create(user_id=db_user['id'], sound_id=int(result.result_id))
 
+    async def get_queries(self) -> list[dict[str, Any]]:
+        return [_query_to_dict(q) for q in await QueryHistory.all().prefetch_related('user')]
+
     async def get_results(self) -> list[dict[str, Any]]:
-        results_qs = await ResultHistory.all().prefetch_related('user', 'sound')
-        results = [_result_to_dict(r) for r in results_qs]
-        LOG.debug("get_results: Obtained: %s", str(results))
-        return results
+        return [_result_to_dict(r) for r in await ResultHistory.all().prefetch_related('user', 'sound')]
 
 
 # --- Mappers ---
@@ -229,9 +214,9 @@ def _user_to_dict(db_object: User) -> dict[str, Any]:
         'id': db_object.id,
         'is_bot': db_object.is_bot,
         'first_name': db_object.first_name,
-        'username': db_object.username if db_object.username != '' else None,
-        'last_name': db_object.last_name if db_object.last_name != '' else None,
-        'language_code': db_object.language_code if db_object.language_code != '' else None,
+        'username': db_object.username,
+        'last_name': db_object.last_name,
+        'language_code': db_object.language_code,
     }
 
 
