@@ -277,3 +277,30 @@ class TestLatestUsedSounds:
         with caplog.at_level(logging.ERROR, logger='RajoyBot.persistence.tools'):
             await tools.get_latest_used_sounds_from_user(user_id=42)
         assert any("Couldn't fetch recent sounds" in r.message for r in caplog.records)
+
+
+class TestCrossTaskAccess:
+    """Tortoise's contextvar is set in the task that calls Tortoise.init(). When
+    python-telegram-bot dispatches a handler in a fresh task with an empty context,
+    the connection used to be unreachable. _enable_global_fallback=True (passed in
+    SoundRepository.init) makes the connection findable cross-task."""
+
+    async def test_db_call_works_in_empty_context(self, database):
+        import asyncio
+        import contextvars
+
+        from persistence import User
+
+        await database.add_or_update_user({
+            'id': 555_000_001, 'is_bot': False, 'first_name': 'Cross',
+            'last_name': None, 'username': None, 'language_code': None,
+        })
+
+        async def query():
+            return await User.filter(id=555_000_001).first()
+
+        # Empty context: contextvars set by Tortoise.init are not visible here.
+        empty_ctx = contextvars.Context()
+        result = await asyncio.create_task(query(), context=empty_ctx)
+        assert result is not None
+        assert result.id == 555_000_001

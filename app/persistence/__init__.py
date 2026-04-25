@@ -103,7 +103,16 @@ class SoundRepository:
             LOG.info('Starting persistence layer on memory using SQLite.')
             db_url = "sqlite://:memory:"
 
-        await Tortoise.init(db_url=db_url, modules={'models': ['persistence']})
+        # _enable_global_fallback=True is required because python-telegram-bot runs
+        # post_init in one task and dispatches handlers in fresh tasks that don't
+        # inherit Tortoise's contextvar. The global fallback lets handlers find the
+        # connection cross-task. Without it, every handler hits "No TortoiseContext
+        # is currently active".
+        await Tortoise.init(
+            db_url=db_url,
+            modules={'models': ['persistence']},
+            _enable_global_fallback=True,
+        )
         await Tortoise.generate_schemas()
         if self._provider == 'mysql':
             await self._migrate_mysql_user_id_to_bigint()
