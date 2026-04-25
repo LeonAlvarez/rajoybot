@@ -1,5 +1,6 @@
 use rand::Rng;
 use sqlx::any::AnyRow;
+use sqlx::pool::PoolOptions;
 use sqlx::{AnyPool, Row};
 use tracing::{debug, info};
 
@@ -23,7 +24,7 @@ impl Sound {
             filename: row.get("filename"),
             text: row.get("text"),
             tags: row.get("tags"),
-            disabled: row.get("disabled"),
+            disabled: row.get::<i32, _>("disabled") != 0,
         }
     }
 
@@ -46,7 +47,7 @@ impl User {
     fn from_row(row: &AnyRow) -> Self {
         Self {
             id: row.get("id"),
-            is_bot: row.get("is_bot"),
+            is_bot: row.get::<i32, _>("is_bot") != 0,
             first_name: row.get("first_name"),
             last_name: row.get("last_name"),
             username: row.get("username"),
@@ -95,7 +96,7 @@ impl DbConfig<'_> {
             }
             Self::SqliteMemory => {
                 info!("Using in-memory SQLite as persistence layer");
-                "sqlite://:memory:".into()
+                "sqlite::memory:".into()
             }
         }
     }
@@ -108,12 +109,28 @@ pub struct SoundRepository {
     is_mysql: bool,
 }
 
+#[cfg(test)]
+impl SoundRepository {
+    pub async fn test_repo() -> Self {
+        Self::connect(DbConfig::SqliteMemory).await.unwrap()
+    }
+}
+
 impl SoundRepository {
     pub async fn connect(config: DbConfig<'_>) -> Result<Self, sqlx::Error> {
-        sqlx::any::install_default_drivers();
+        static INIT_DRIVERS: std::sync::Once = std::sync::Once::new();
+        INIT_DRIVERS.call_once(sqlx::any::install_default_drivers);
+        let is_memory = matches!(config, DbConfig::SqliteMemory);
         let url = config.to_url();
         let is_mysql = matches!(config, DbConfig::Mysql { .. });
-        let pool = AnyPool::connect(&url).await?;
+        let pool = if is_memory {
+            PoolOptions::new()
+                .max_connections(1)
+                .connect(&url)
+                .await?
+        } else {
+            AnyPool::connect(&url).await?
+        };
         let repo = Self { pool, is_mysql };
         repo.create_tables().await?;
         Ok(repo)
@@ -380,5 +397,206 @@ impl SoundRepository {
         sqlx::query_scalar("SELECT COUNT(*) FROM resulthistory")
             .fetch_one(&self.pool)
             .await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn connect_sqlite_memory() {
+        let repo = SoundRepository::test_repo().await;
+        assert!(!repo.is_mysql);
+    }
+
+    #[tokio::test]
+    async fn insert_and_get_enabled_sounds() {
+        let repo = SoundRepository::test_repo().await;
+        repo.insert_sound(1, "cuanto_peor.ogg", "Cuanto peor mejor", "cuanto peor mejor")
+            .await
+            .unwrap();
+        repo.insert_sound(2, "viva_vino.ogg", "Viva el vino", "viva el vino")
+            .await
+            .unwrap();
+
+        let sounds = repo.get_enabled_sounds().await.unwrap();
+        assert_eq!(sounds.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn find_sound_by_filename_found() {
+        let repo = SoundRepository::test_repo().await;
+        repo.insert_sound(42, "cataluna.ogg", "Me gusta Cataluña", "cataluna")
+            .await
+            .unwrap();
+
+        let found = repo.find_sound_by_filename("cataluna.ogg").await.unwrap();
+        assert!(found.is_some());
+        assert_eq!(found.unwrap().id, 42);
+    }
+
+    #[tokio::test]
+    async fn find_sound_by_filename_not_found() {
+        let repo = SoundRepository::test_repo().await;
+        let found = repo.find_sound_by_filename("no_existe.ogg").await.unwrap();
+        assert!(found.is_none());
+    }
+
+    #[tokio::test]
+    async fn remove_sound_hard_delete_without_history() {
+        let repo = SoundRepository::test_repo().await;
+        repo.insert_sound(1, "vaso.ogg", "Un vaso es un vaso", "vaso plato")
+            .await
+            .unwrap();
+
+        let sound = repo.find_sound_by_filename("vaso.ogg").await.unwrap().unwrap();
+        repo.remove_sound(&sound).await.unwrap();
+
+        assert!(repo.find_sound_by_filename("vaso.ogg").await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn remove_sound_soft_delete_with_history() {
+        let repo = SoundRepository::test_repo().await;
+        repo.insert_sound(1, "vaso.ogg", "Un vaso es un vaso", "vaso plato")
+            .await
+            .unwrap();
+
+        let user = User {
+            id: 100,
+            is_bot: false,
+            first_name: "Mariano".into(),
+            last_name: Some("Rajoy".into()),
+            username: Some("mrajoy".into()),
+            language_code: Some("es".into()),
+        };
+        repo.upsert_user(&user).await.unwrap();
+
+        sqlx::query("INSERT INTO resulthistory (user_id, sound_id) VALUES (?, ?)")
+            .bind(100i64)
+            .bind(1i64)
+            .execute(repo.pool())
+            .await
+            .unwrap();
+
+        let sound = repo.find_sound_by_filename("vaso.ogg").await.unwrap().unwrap();
+        repo.remove_sound(&sound).await.unwrap();
+
+        // Sound still exists but is disabled
+        let row: Option<(i32,)> =
+            sqlx::query_as("SELECT disabled FROM sound WHERE id = 1")
+                .fetch_optional(repo.pool())
+                .await
+                .unwrap();
+        assert!(row.is_some());
+        assert_eq!(row.unwrap().0, 1);
+
+        // But get_enabled_sounds excludes it
+        assert!(repo.get_enabled_sounds().await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn upsert_user_insert_and_update() {
+        let repo = SoundRepository::test_repo().await;
+        let user = User {
+            id: 1,
+            is_bot: false,
+            first_name: "Mariano".into(),
+            last_name: Some("Rajoy".into()),
+            username: Some("mrajoy".into()),
+            language_code: Some("es".into()),
+        };
+        repo.upsert_user(&user).await.unwrap();
+
+        let found = repo.find_user(1).await.unwrap().unwrap();
+        assert_eq!(found.first_name, "Mariano");
+
+        let updated = User {
+            first_name: "M.".into(),
+            ..user
+        };
+        repo.upsert_user(&updated).await.unwrap();
+
+        let found = repo.find_user(1).await.unwrap().unwrap();
+        assert_eq!(found.first_name, "M.");
+    }
+
+    #[tokio::test]
+    async fn find_user_not_found() {
+        let repo = SoundRepository::test_repo().await;
+        assert!(repo.find_user(999).await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn user_count() {
+        let repo = SoundRepository::test_repo().await;
+        assert_eq!(repo.user_count().await.unwrap(), 0);
+
+        let user = User {
+            id: 1,
+            is_bot: false,
+            first_name: "Mariano".into(),
+            last_name: None,
+            username: None,
+            language_code: None,
+        };
+        repo.upsert_user(&user).await.unwrap();
+        assert_eq!(repo.user_count().await.unwrap(), 1);
+    }
+
+    #[tokio::test]
+    async fn record_query_and_count() {
+        let repo = SoundRepository::test_repo().await;
+        let tg_user = teloxide::types::User {
+            id: teloxide::types::UserId(42),
+            is_bot: false,
+            first_name: "Mariano".into(),
+            last_name: None,
+            username: None,
+            language_code: None,
+            is_premium: false,
+            added_to_attachment_menu: false,
+        };
+
+        assert_eq!(repo.query_count().await.unwrap(), 0);
+
+        repo.record_query(&tg_user, "cuanto peor").await.unwrap();
+        repo.record_query(&tg_user, "viva el vino").await.unwrap();
+
+        assert_eq!(repo.query_count().await.unwrap(), 2);
+        // Also created the user
+        assert_eq!(repo.user_count().await.unwrap(), 1);
+    }
+
+    #[tokio::test]
+    async fn record_result_and_count() {
+        let repo = SoundRepository::test_repo().await;
+        repo.insert_sound(10, "test.ogg", "Test", "test")
+            .await
+            .unwrap();
+
+        let tg_user = teloxide::types::User {
+            id: teloxide::types::UserId(42),
+            is_bot: false,
+            first_name: "Mariano".into(),
+            last_name: None,
+            username: None,
+            language_code: None,
+            is_premium: false,
+            added_to_attachment_menu: false,
+        };
+
+        assert_eq!(repo.result_count().await.unwrap(), 0);
+        repo.record_result(&tg_user, 10).await.unwrap();
+        assert_eq!(repo.result_count().await.unwrap(), 1);
+    }
+
+    #[tokio::test]
+    async fn generate_id_in_range() {
+        for _ in 0..100 {
+            let id = Sound::generate_id();
+            assert!((10_000_000..99_999_999).contains(&id));
+        }
     }
 }

@@ -44,3 +44,41 @@ fn read_proc_uptime() -> Option<u64> {
         .ok()
         .map(|v| v as u64)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn format_zero() {
+        assert_eq!(format_duration(0), "0:00:00");
+    }
+
+    #[test]
+    fn format_seconds_only() {
+        assert_eq!(format_duration(45), "0:00:45");
+    }
+
+    #[test]
+    fn format_minutes_and_seconds() {
+        assert_eq!(format_duration(125), "0:02:05");
+    }
+
+    #[test]
+    fn format_hours_minutes_seconds() {
+        assert_eq!(format_duration(3661), "1:01:01");
+    }
+
+    #[test]
+    fn format_large_duration() {
+        // 4 years as president... approximately
+        assert_eq!(format_duration(86400), "24:00:00");
+    }
+
+    #[test]
+    fn bot_uptime_after_init() {
+        init();
+        let output = bot_uptime();
+        assert!(output.starts_with("Bot Uptime: "));
+    }
+}
