@@ -206,3 +206,31 @@ class TestLatestUsedSounds:
         from persistence.tools import get_latest_used_sounds_from_user
         sounds = await get_latest_used_sounds_from_user(user_id=88888)
         assert sounds == []
+
+    async def test_get_latest_used_sounds_returns_empty_on_error(self, database, monkeypatch):
+        """If the DB layer raises (e.g. no active Tortoise context), fall back to []
+        so the empty inline query still serves all sounds."""
+        from persistence import tools
+
+        class _BoomManager:
+            def filter(self, **_kwargs):
+                raise RuntimeError("No TortoiseContext is currently active")
+
+        monkeypatch.setattr(tools, 'User', _BoomManager())
+        sounds = await tools.get_latest_used_sounds_from_user(user_id=1)
+        assert sounds == []
+
+    async def test_get_latest_used_sounds_logs_error_on_failure(self, database, monkeypatch, caplog):
+        """The fallback should leave a trace in the logs so the failure isn't silent."""
+        import logging
+
+        from persistence import tools
+
+        class _BoomManager:
+            def filter(self, **_kwargs):
+                raise RuntimeError("No TortoiseContext is currently active")
+
+        monkeypatch.setattr(tools, 'User', _BoomManager())
+        with caplog.at_level(logging.ERROR, logger='RajoyBot.persistence.tools'):
+            await tools.get_latest_used_sounds_from_user(user_id=42)
+        assert any("Couldn't fetch recent sounds" in r.message for r in caplog.records)
