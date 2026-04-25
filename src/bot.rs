@@ -119,10 +119,10 @@ async fn handle_command(bot: Bot, msg: Message, me: Me, state: Arc<AppState>) ->
             )
             .await?;
 
-            if let Some(from) = &msg.from {
-                if let Err(e) = state.db.upsert_user(&User::from(from)).await {
-                    error!("Failed to save user: {e}");
-                }
+            if let Some(from) = &msg.from
+                && let Err(e) = state.db.upsert_user(&User::from(from)).await
+            {
+                error!("Failed to save user: {e}");
             }
         }
         Command::Stats => {
@@ -251,10 +251,10 @@ async fn handle_chosen_result(
 ) -> ResponseResult<()> {
     debug!(result_id = chosen.result_id, user_id = chosen.from.id.0, "Chosen inline result");
 
-    if let Ok(sound_id) = chosen.result_id.parse::<i64>() {
-        if let Err(e) = state.db.record_result(&chosen.from, sound_id).await {
-            error!("Couldn't save result: {e}");
-        }
+    if let Ok(sound_id) = chosen.result_id.parse::<i64>()
+        && let Err(e) = state.db.record_result(&chosen.from, sound_id).await
+    {
+        error!("Couldn't save result: {e}");
     }
 
     Ok(())
