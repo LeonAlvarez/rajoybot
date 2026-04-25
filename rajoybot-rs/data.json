@@ -1,0 +1,205 @@
+{
+  "title": "Rajoy Bot",
+  "sounds": [
+    {
+      "filename": "cuanto_peor.ogg",
+      "text": "Cuanto peor mejor para todos",
+      "tags": "cuanto peor mejor para todos y cuanto peor para todos mejor, mejor para mi el suyo beneficio politico"
+    },
+    {
+      "filename": "es_el_vecino.ogg",
+      "text": "Es el alcalde",
+      "tags": "es el vecino el que elige el alcalde y es el alcalde el que quiere que sean los vecinos el alcalde"
+    },
+    {
+      "filename": "y_la_europea.ogg",
+      "text": "Pues... eh... ¿Y la europea?",
+      "tags": "pues... eh... ¿Y la europea?"
+    },
+    {
+      "filename": "la_segunda_ya_tal.ogg",
+      "text": "La segunda ya tal",
+      "tags": "la segunda ya tal"
+    },
+    {
+      "filename": "me_gusta_cataluna.ogg",
+      "text": "Me gusta Cataluña",
+      "tags": "me gusta cataluña. me gustan sus gentes, su caracter abierto, su laboriosidad, son emprendedores, hacen cosas"
+    },
+    {
+      "filename": "no_entiendo_mi_letra.ogg",
+      "text": "Me ha pasado una cosa",
+      "tags": "me ha pasado una cosa verdaderamente notable: que lo he escrito aqui, y no entiendo mi letra"
+    },
+    {
+      "filename": "somos_sentimientos.ogg",
+      "text": "Somos sentimientos",
+      "tags": "somos sentimientos y tenemos seres humanos"
+    },
+    {
+      "filename": "muy_espanoles.ogg",
+      "text": "Los españoles muy españoles",
+      "tags": "españa es una gran nacion y los españoles muy españoles y mucho españoles"
+    },
+    {
+      "filename": "lo_que_hemos_hecho.ogg",
+      "text": "Lo que nosotros hemos hecho",
+      "tags": "lo que nosotros hemos hecho, cosa que no hizo usted, es en... engañar a la gente"
+    },
+    {
+      "filename": "viva_el_vino.ogg",
+      "text": "Viva el vino",
+      "tags": "viva el vino"
+    },
+    {
+      "filename": "ceramica_talavera_v2.ogg",
+      "text": "La ceramica de Talavera",
+      "tags": "la ceramica de talavera no es cosa menor, dicho de otra forma: es cosa mayor"
+    },
+        {
+      "filename": "no_es_cierto.ogg",
+      "text": "No es cierto",
+      "tags": "no es cierto. salvo alguna cosa que es lo que han publicado algunos medios de comunicacion"
+    },
+    {
+      "filename": "ser_serio.ogg",
+      "text": "Lo unico serio",
+      "tags": "lo unico serio al final en la vida es ser serio"
+    },
+    {
+      "filename": "solidario.ogg",
+      "text": "Ser solidario",
+      "tags": "una cosa es ser solidario y otra cosa es serlo a cambio de nada"
+    },
+    {
+      "filename": "maquinas.ogg",
+      "text": "Maquina-inception",
+      "tags": "hay que fabricar maquinas que nos permita seguir fabricando maquinas, porque lo que no va a hacer nunca la maquina es fabricar maquinas"
+    },
+    {
+      "filename": "300_anos.ogg",
+      "text": "Dentro de 300 años",
+      "tags": "¿como alguien puede decir lo que va a pasar en el mundo dentro de 300 años?"
+    },
+    {
+      "filename": "agua_cae_cielo.ogg",
+      "text": "Agua que cae del cielo",
+      "tags": "esto no es como el agua que cae del cielo sin que se sepa exactamente por que"
+    },
+        {
+      "filename": "no_mas_iva.ogg",
+      "text": "No mas IVA",
+      "tags": "no mas iva', esto es un clamor que recorre España de arriba a abajo y de abajo a arriba"
+    },
+    {
+      "filename": "bajar_los_impuestos.ogg",
+      "text": "Bajar los impuestos",
+      "tags": "dije que bajaria los impuestos y los estoy subiendo"
+    },
+    {
+      "filename": "hilitos.ogg",
+      "text": "Hilitos de na",
+      "tags": "se piensa que el fuel esta aun enfriandose, salen unos pequeños hilitos"
+    },
+    {
+      "filename": "proximo_ano_2016.ogg",
+      "text": "Lo mejor para el próximo año 2016",
+      "tags": "lo mejor para el proximo año 2016, que sinceramente falta nos hace a todos"
+    },
+    {
+      "filename": "lo_imposible.ogg",
+      "text": "Lo imposible",
+      "tags": "y hare todo lo posible e incluso lo imposible, si tambien lo imposible es posible"
+    },
+    {
+      "filename": "que_se_puede_hacer.ogg",
+      "text": "Qué se puede hacer",
+      "tags": "los gobernantes ya saben que se puede hacer, y que no se puede hacer"
+    },
+    {
+      "filename": "eta_gran_nacion.ogg",
+      "text": "ETA es una gran nación",
+      "tags": "eta es una gran nacion"
+    },
+    {
+      "filename": "chuches.ogg",
+      "text": "Chuches",
+      "tags": "va a subir el iva de los chuches"
+    },
+    {
+      "filename": "un_vaso_es_un_vaso.ogg",
+      "text": "Vaso",
+      "tags": "un vaso es un vaso"
+    },
+    {
+      "filename": "piensan_antes_hablar.ogg",
+      "text": "¿Piensan antes de hablar?",
+      "tags": "piensan antes de hablar hablan tras pensar"
+    },
+    {
+      "filename": "its_very_difficult.ogg",
+      "text": "It's very difficult todo ésto",
+      "tags": "very difficult todo esto"
+    },
+    {
+      "filename": "galileo.ogg",
+      "text": "Como decía Galileo...",
+      "tags": "como decia galileo el movimiento siempre se acelera cuando se va a detener"
+    },
+    {
+      "filename": "75_millones.ogg",
+      "text": "75 millones de españoles",
+      "tags": "una espana a la que 75 millones de espanoles vienen cada ano"
+    },
+    {
+      "filename": "fin_de_la_cita.ogg",
+      "text": "Fin de la cita.",
+      "tags": "fin de la cita"
+    },
+    {
+      "filename": "no_he_dormido_nada.ogg",
+      "text": "No he dormido nada, no pregunten demasiado",
+      "tags": "no he dormido nada no pregunten demasiado"
+    },
+    {
+      "filename": "domo_arigato_gozaimasu.ogg",
+      "text": "Domo arigato gozaimasu",
+      "tags": "domo arigato gozaimasu gosaymas"
+    },
+    {
+      "filename": "te_dejo_mi_tractor.ogg",
+      "text": "Te dejo mi tractor",
+      "tags": "Aitor te dejo mi tractor"
+    },
+    {
+      "filename": "toma_democracia.ogg",
+      "text": "Toma democracia",
+      "tags": "toma democracia"
+    },
+    {
+      "filename": "por_las_carreteras.ogg",
+      "text": "Por las carreteras tienen que ir coches",
+      "tags": "por las carreteras tienen que ir coches y de los aeropuertos tienen que salir aviones"
+    },
+    {
+      "filename": "ha_estado_muy_bien.ogg",
+      "text": "Ha estado muy bien",
+      "tags": "ha estado muy bien"
+    },
+    {
+      "filename": "aroma_de_lo_absurdo.ogg",
+      "text": "¿Percibe el aroma de lo absurdo?",
+      "tags": "percibe el aroma de lo absurdo"
+    },
+    {
+      "filename": "hoy_estoy_aqui.ogg",
+      "text": "Hoy estoy aqui",
+      "tags": "hoy estoy aqui"
+    },
+    {
+      "filename": "dentro_de_un_orden.ogg",
+      "text": "Estoy dentro de un orden y, por tanto, en equilibrio, gracias",
+      "tags": "buenos dias Carlos estoy dentro de un orden y por tanto en equilibrio gracias"
+    }
+  ]
+}
