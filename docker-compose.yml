@@ -1,6 +1,7 @@
 services:
   rajoybot:
-    image: elraro/rajoybot
+    build: .
+    image: elraro/rajoybot_rs
     container_name: rajoybot
     restart: always
     env_file: .env
